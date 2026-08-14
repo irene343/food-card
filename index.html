@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>今天吃什么 — 个人口味卡</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    min-height: 100vh;
+    color: #2d2d2d;
+  }
+
+  /* ===== Theme System ===== */
+  .theme-default { --bg: #f8f5f0; --view-bg: linear-gradient(160deg, #fff5ee 0%, #f8f0e3 40%, #f0e6d8 100%); }
+  .theme-hellokitty { --bg: #fff0f3; --view-bg: linear-gradient(160deg, #ffe4ec 0%, #fff0f3 40%, #fce4ec 100%); }
+  .theme-ocean { --bg: #f0f4f8; --view-bg: linear-gradient(160deg, #e3f0fa 0%, #f0f4f8 40%, #e8f0fe 100%); }
+  .theme-forest { --bg: #f0f8f0; --view-bg: linear-gradient(160deg, #e8f5e9 0%, #f0f8f0 40%, #e0f2e0 100%); }
+  .theme-purple { --bg: #f5f0ff; --view-bg: linear-gradient(160deg, #ede7f6 0%, #f5f0ff 40%, #f3e8ff 100%); }
+
+  body { background: var(--bg, #f8f5f0); }
+
+  /* ===== View Mode ===== */
+  .view-mode { display: none; min-height: 100vh; background: var(--view-bg, #f8f5f0); }
+  .view-mode.active { display: block; }
+
+  .card-container { max-width: 420px; margin: 0 auto; padding: 1rem 1rem 2rem; }
+
+  .profile-card {
+    background: #fff;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.08);
+    margin-top: 1rem;
+    position: relative;
+  }
+  .profile-card .cover {
+    height: 100px;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .profile-card .cover .cover-deco {
+    position: absolute; font-size: 5rem; opacity: 0.15; user-select: none; pointer-events: none;
+  }
+  .profile-card .cover .cover-deco.d1 { top: -10px; left: 0; }
+  .profile-card .cover .cover-deco.d2 { bottom: -20px; right: 10px; font-size: 3rem; }
+  .profile-card .cover .cover-deco.d3 { top: 10px; right: 30px; font-size: 2rem; }
+  .profile-card .cover .avatar {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    transform: translateY(50%);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    position: relative;
+    z-index: 1;
+  }
+  .profile-card .cover .avatar-bow {
+    position: absolute; top: -8px; left: 50%; transform: translateX(-50%); font-size: 1.5rem; z-index: 2; display: none;
+  }
+  .profile-card .profile-info { text-align: center; padding: 2.5rem 1rem 1rem; }
+  .profile-card .profile-info h2 { font-size: 1.3rem; font-weight: 700; }
+  .profile-card .profile-info .bio { font-size: 0.85rem; color: #999; margin-top: 0.2rem; }
+
+  .food-section { padding: 0.5rem 1rem 1rem; }
+  .food-section:last-child { padding-bottom: 1.5rem; }
+  .food-section .section-header {
+    display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; font-weight: 600;
+    margin-bottom: 0.5rem; padding-bottom: 0.4rem; border-bottom: 2px solid #f0f0f0;
+  }
+  .food-section .section-header .count { font-size: 0.7rem; color: #bbb; font-weight: 400; margin-left: auto; }
+  .food-grid { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .food-pill {
+    display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.3rem 0.7rem;
+    border-radius: 20px; font-size: 0.85rem; font-weight: 500; animation: popIn 0.3s ease-out;
+  }
+  @keyframes popIn { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .food-pill.love { background: #fff0e6; color: #e65100; }
+  .food-pill.like { background: #e8f5e9; color: #2e7d32; }
+  .food-pill.meh  { background: #f3f0e8; color: #8d8d8d; }
+  .food-pill.nope { background: #fce4ec; color: #c62828; }
+  .empty-tip { font-size: 0.8rem; color: #ccc; padding: 0.3rem 0; }
+
+  .share-actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
+  .share-actions .btn {
+    flex: 1; padding: 0.8rem; border: none; border-radius: 14px; font-size: 0.9rem;
+    font-weight: 600; cursor: pointer; transition: all 0.25s; display: flex; align-items: center;
+    justify-content: center; gap: 0.4rem;
+  }
+  .share-actions .btn:active { transform: scale(0.97); }
+  .btn-primary { color: #fff; }
+  .btn-primary:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+  .btn-white { background: #fff; color: #333; border: 1px solid #ddd !important; }
+  .btn-white:hover { border-color: #999; }
+
+  .card-footer { text-align: center; padding: 1rem; color: #bbb; font-size: 0.75rem; }
+
+  /* ===== Edit Mode ===== */
+  .edit-mode { display: none; min-height: 100vh; background: #fff; }
+  .edit-mode.active { display: block; }
+  .edit-header {
+    padding: 1.2rem 1rem; position: sticky; top: 0; z-index: 10; color: #fff;
+  }
+  .edit-header .top-row { display: flex; align-items: center; gap: 0.5rem; }
+  .edit-header .top-row h1 { font-size: 1.2rem; font-weight: 700; flex: 1; }
+  .edit-header .top-row .btn-icon {
+    width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.1); color: #fff; font-size: 1rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .edit-header .top-row .btn-icon:active { background: rgba(255,255,255,0.2); }
+  .edit-header .profile-name { margin-top: 0.8rem; display: flex; gap: 0.5rem; align-items: center; }
+  .edit-header .profile-name .name-label { font-size: 0.8rem; opacity: 0.8; white-space: nowrap; }
+  .edit-header .profile-name input {
+    flex: 1; padding: 0.6rem 1rem; border: none; border-radius: 10px; font-size: 0.95rem;
+    background: rgba(255,255,255,0.2); color: #fff; outline: none;
+  }
+  .edit-header .profile-name input::placeholder { color: rgba(255,255,255,0.6); }
+
+  .edit-body { padding: 1rem; }
+
+  /* Theme selector */
+  .theme-selector { margin-bottom: 1rem; }
+  .theme-selector .ts-label { font-size: 0.8rem; color: #999; margin-bottom: 0.4rem; }
+  .theme-selector .ts-grid { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .theme-btn {
+    width: 40px; height: 40px; border-radius: 50%; border: 3px solid #eee; cursor: pointer;
+    transition: all 0.2s; position: relative;
+  }
+  .theme-btn:hover { transform: scale(1.1); }
+  .theme-btn.active { border-color: #333; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #333; }
+  .theme-btn .check { display: none; position: absolute; inset: 0; align-items: center; justify-content: center; font-size: 1rem; }
+  .theme-btn.active .check { display: flex; }
+  .tb-default { background: linear-gradient(135deg, #ff6b35, #f7931e); }
+  .tb-hellokitty { background: linear-gradient(135deg, #ff4d6d, #ff8fa3); }
+  .tb-ocean { background: linear-gradient(135deg, #4a90d9, #7bb3e8); }
+  .tb-forest { background: linear-gradient(135deg, #4caf50, #81c784); }
+  .tb-purple { background: linear-gradient(135deg, #9c27b0, #ce93d8); }
+
+  /* Category tabs */
+  .category-tabs { display: flex; gap: 0.4rem; margin-bottom: 1rem; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 0.3rem; }
+  .category-tabs::-webkit-scrollbar { display: none; }
+  .cat-tab {
+    flex-shrink: 0; padding: 0.5rem 0.9rem; border-radius: 20px; border: 2px solid #eee;
+    background: #fafafa; font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; gap: 0.3rem;
+  }
+  .cat-tab.active { border-color: #ff6b35; background: #fff5ee; color: #e65100; }
+  .cat-tab:active { transform: scale(0.95); }
+
+  .add-row { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+  .add-row input {
+    flex: 1; padding: 0.7rem 1rem; border: 2px solid #eee; border-radius: 12px; font-size: 0.95rem; outline: none;
+  }
+  .add-row input:focus { border-color: #ff6b35; }
+  .add-row .btn-add {
+    padding: 0.7rem 1.2rem; border: none; border-radius: 12px; color: #fff;
+    font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+  .add-row .btn-add:active { transform: scale(0.95); }
+
+  .edit-section { margin-bottom: 1.5rem; }
+  .edit-section h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.3rem; }
+  .edit-section h3 .badge { font-size: 0.7rem; color: #999; font-weight: 400; }
+  .edit-food-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .edit-food-item {
+    display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.4rem 0.8rem;
+    border-radius: 20px; font-size: 0.85rem; background: #f5f5f5; border: 1px solid #eee; animation: popIn 0.2s ease-out;
+  }
+  .edit-food-item .del { cursor: pointer; color: #ef5350; font-weight: 700; font-size: 1rem; line-height: 1; margin-left: 0.1rem; }
+  .edit-food-item .del:hover { color: #c62828; }
+  .edit-food-item.empty { color: #ccc; background: none; border: none; font-size: 0.8rem; }
+
+  .toast {
+    position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: #333; color: #fff; padding: 0.7rem 1.2rem; border-radius: 12px; font-size: 0.85rem;
+    opacity: 0; transition: all 0.3s; z-index: 999; white-space: nowrap; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .share-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: flex-end; justify-content: center; }
+  .share-modal-overlay.active { display: flex; }
+  .share-modal {
+    background: #fff; border-radius: 24px 24px 0 0; width: 100%; max-width: 420px; padding: 1.5rem 1.5rem 2rem; animation: slideUp 0.3s ease-out;
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .share-modal h3 { text-align: center; font-size: 1rem; margin-bottom: 1.2rem; }
+  .share-modal .share-url-box { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+  .share-modal .share-url-box input {
+    flex: 1; padding: 0.7rem; border: 2px solid #eee; border-radius: 10px; font-size: 0.75rem;
+    background: #fafafa; outline: none; color: #666;
+  }
+  .share-modal .share-url-box .btn-copy { padding: 0.7rem 1rem; border: none; border-radius: 10px; background: #333; color: #fff; font-weight: 600; cursor: pointer; font-size: 0.8rem; }
+  .share-modal .share-url-box .btn-copy:active { transform: scale(0.95); }
+  .share-modal .share-tip { text-align: center; font-size: 0.8rem; color: #999; line-height: 1.6; }
+  .share-modal .share-tip strong { color: #333; }
+
+  @media (min-width: 500px) { .card-container { padding: 2rem 1rem; } .profile-card { margin-top: 0; } }
+</style>
+</head>
+<body>
+
+<!-- ===== View Mode ===== -->
+<div class="view-mode" id="viewMode">
+  <div class="card-container">
+    <div class="profile-card" id="profileCard">
+      <div class="cover">
+        <span class="cover-deco d1">🍊</span>
+        <span class="cover-deco d2">🌅</span>
+        <span class="cover-deco d3">✨</span>
+        <div class="avatar" id="viewAvatar">
+          😋
+          <span class="avatar-bow">🎀</span>
+        </div>
+      </div>
+      <div class="profile-info">
+        <h2 id="viewName">吃货</h2>
+        <p class="bio" id="viewBio">这是我的口味卡，约饭前看一眼~</p>
+      </div>
+
+      <!-- Love -->
+      <div class="food-section" id="viewLoveSection">
+        <div class="section-header">
+          <span>😍 超爱吃</span>
+          <span class="count" id="viewLoveCount">0</span>
+        </div>
+        <div class="food-grid" id="viewLoveGrid"><span class="empty-tip">还没有添加~</span></div>
+      </div>
+
+      <!-- Like -->
+      <div class="food-section" id="viewLikeSection">
+        <div class="section-header">
+          <span>👍 还不错</span>
+          <span class="count" id="viewLikeCount">0</span>
+        </div>
+        <div class="food-grid" id="viewLikeGrid"><span class="empty-tip">还没有添加~</span></div>
+      </div>
+
+      <!-- Meh -->
+      <div class="food-section" id="viewMehSection">
+        <div class="section-header">
+          <span>🤷 一般般</span>
+          <span class="count" id="viewMehCount">0</span>
+        </div>
+        <div class="food-grid" id="viewMehGrid"><span class="empty-tip">还没有添加~</span></div>
+      </div>
+
+      <!-- Nope -->
+      <div class="food-section" id="viewNopeSection">
+        <div class="section-header">
+          <span>🚫 不吃/ 过敏</span>
+          <span class="count" id="viewNopeCount">0</span>
+        </div>
+        <div class="food-grid" id="viewNopeGrid"><span class="empty-tip">还没有添加~</span></div>
+      </div>    </div>
+
+    <div class="share-actions">
+      <button class="btn btn-primary" onclick="showShareModal()">📤 分享口味卡</button>
+      <button class="btn btn-white" onclick="switchToEdit()">✏ 编辑</button>
+    </div>
+    <div class="card-footer">🍽 今天吃什么 · 约饭神器</div>
+  </div>
+</div>
+
+<!-- ===== Edit Mode ====== -->
+<div class="edit-mode" id="editMode">
+  <div class="edit-header" id="editHeader">
+    <div class="top-row">
+      <h1>🎀 我的口味</h1>
+      <button class="btn-icon" onclick="switchToView()">✓</button>
+    </div>
+    <div class="profile-name">
+      <span class="name-label">昵称</span>
+      <input type="text" id="nameInput" placeholder="输入你的昵称..." maxlength="10" />
+    </div>
+  </div>
+
+  <div class="edit-body">
+    <!-- Theme Selector -->
+    <div class="theme-selector">
+      <div class="ts-label">🎨 卡片主题</div>
+      <div class="ts-grid" id="themeGrid">
+        <button class="theme-btn tb-default" data-theme="default" onclick="selectTheme('default')"><span class="check">✓</span></button>
+        <button class="theme-btn tb-hellokitty" data-theme="hellokitty" onclick="selectTheme('hellokitty')"><span class="check">✓</span></button>
+        <button class="theme-btn tb-ocean" data-theme="ocean" onclick="selectTheme('ocean')"><span class="check">✓</span></button>
+        <button class="theme-btn tb-forest" data-theme="forest" onclick="selectTheme('forest')"><span class="check">✓</span></button>
+        <button class="theme-btn tb-purple" data-theme="purple" onclick="selectTheme('purple')"><span class="check">✓</span></button>
+      </div>
+    </div>
+
+    <!-- Category Tabs -->
+    <div class="category-tabs" id="categoryTabs">
+      <button class="cat-tab active" data-cat="love" onclick="setCategory('love')">😍 超爱吃</button>
+      <button class="cat-tab" data-cat="like" onclick="setCategory('like')">👍 还不错</button>
+      <button class="cat-tab" data-cat="meh" onclick="setCategory('meh')">🤷 一般般</button>
+      <button class="cat-tab" data-cat="nope" onclick="setCategory('nope')">🚫 不吃</button>
+    </div>
+
+    <!-- Add -->
+    <div class="add-row">
+      <input type="text" id="foodInput" placeholder="输入菜名，如：麻辣烫、香菜..." maxlength="15" />
+      <button class="btn-add" id="btnAdd" onclick="addFood()">➕ 添加</button>
+    </div>
+
+    <!-- Lists -->
+    <div id="editLists">
+      <div class="edit-section" data-cat="love">
+        <h3>😍 超爱吃 <span class="badge" id="editLoveCount">0</span></h3>
+        <div class="edit-food-list" id="editLoveList"></div>
+      </div>
+      <div class="edit-section" data-cat="like">
+        <h3>👍 还不错 <span class="badge" id="editLikeCount">0</span></h3>
+        <div class="edit-food-list" id="editLikeList"></div>
+      </div>
+      <div class="edit-section" data-cat="meh">
+        <h3>🤷 一般般 <span class="badge" id="editMehCount">0</span></h3>
+        <div class="edit-food-list" id="editMehList"></div>
+      </div>
+      <div class="edit-section" data-cat="nope">
+        <h3>🚫 不吃/过敏 <span class="badge" id="editNopeCount">0</span></h3>
+        <div class="edit-food-list" id="editNopeList"></div>
+      </div>
+    </div>
+
+    <div style="text-align:center;padding:1rem 0;">
+      <button class="btn btn-primary" id="btnSaveView" style="display:inline-flex;padding:0.8rem 2rem;" onclick="saveAndView()">
+        ✅ 保存并预览
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Share Modal ===== -->
+<div class="share-modal-overlay" id="shareModal">
+  <div class="share-modal">
+    <h3>📤 分享口味卡</h3>
+    <div class="share-url-box">
+      <input type="text" id="shareUrlInput" readonly onclick="this.select()" />
+      <button class="btn-copy" onclick="copyUrl()">📋 复制</button>
+    </div>
+    <div class="share-tip">
+      把上面的链接发给朋友<br/>
+      对方打开就能看到 <strong>你的口味偏好</strong> 🎉<br/>
+      <span style="font-size:0.75rem;color:#ccc;">约饭前看一眼，再也不怕点错菜！</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Toast ===== -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ===== Constants =====
+  const CATEGORIES = {
+    love: { emoji: '😍', label: '超爱吃', viewClass: 'love' },
+    like: { emoji: '👍', label: '还不错', viewClass: 'like' },
+    meh:  { emoji: '🤷', label: '一般般', viewClass: 'meh' },
+    nope: { emoji: '🚫', label: '不吃/过敏', viewClass: 'nope' }
+  };
+
+  const THEMES = {
+    default: {
+      name: '经典橙', emoji: '🌅',
+      cover: 'linear-gradient(135deg, #ff6b35, #f7931e, #ffb347)',
+      header: 'linear-gradient(135deg, #ff6b35, #f7931e)',
+      accent: '#ff6b35', btnBg: 'linear-gradient(135deg, #ff6b35, #f7931e)',
+      deco: '🍊', bow: false
+    },
+    hellokitty: {
+      name: 'Hello Kitty', emoji: '🎀',
+      cover: 'linear-gradient(135deg, #ff4d6d, #ff8fa3, #ffb3c1)',
+      header: 'linear-gradient(135deg, #ff4d6d, #ff8fa3)',
+      accent: '#ff4d6d', btnBg: 'linear-gradient(135deg, #ff4d6d, #ff8fa3)',
+      deco: '🎀', bow: true
+    },
+    ocean: {
+      name: '海洋蓝', emoji: '🌊',
+      cover: 'linear-gradient(135deg, #4a90d9, #7bb3e8, #a8c8f0)',
+      header: 'linear-gradient(135deg, #4a90d9, #7bb3e8)',
+      accent: '#4a90d9', btnBg: 'linear-gradient(135deg, #4a90d9, #7bb3e8)',
+      deco: '🐳', bow: false
+    },
+    forest: {
+      name: '森林绿', emoji: '🌿',
+      cover: 'linear-gradient(135deg, #4caf50, #81c784, #a5d6a7)',
+      header: 'linear-gradient(135deg, #4caf50, #81c784)',
+      accent: '#4caf50', btnBg: 'linear-gradient(135deg, #4caf50, #81c784)',
+      deco: '🌸', bow: false
+    },
+    purple: {
+      name: '浪漫紫', emoji: '💜',
+      cover: 'linear-gradient(135deg, #9c27b0, #ce93d8, #e1bee7)',
+      header: 'linear-gradient(135deg, #9c27b0, #ce93d8)',
+      accent: '#9c27b0', btnBg: 'linear-gradient(135deg, #9c27b0, #ce93d8)',
+      deco: '✨', bow: false
+    }
+  };
+
+  // ===== State =====
+  let profile = {
+    name: '',
+    foods: { love: [], like: [], meh: [], nope: [] },
+    theme: 'hellokitty'
+  };
+  let currentCategory = 'love';
+  let myId = localStorage.getItem('foodcard_myid') || '';
+
+  // ===== Cloud Storage (npoint.io - free, no auth needed) =====
+  const NPOINT_API = 'https://api.npoint.io';
+  const SHARE_ID = new URLSearchParams(window.location.search).get('id') || '';
+
+  function apiSave(profileData, callback) {
+    if (!myId) {
+      // First time - create a new npoint.io bin
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', NPOINT_API, true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.onload = function() {
+        try {
+          var res = JSON.parse(xhr.responseText);
+          if (res.url) {
+            myId = res.id || res.url.split('/').pop();
+            localStorage.setItem('foodcard_myid', myId);
+            doSave(profileData, callback);
+          } else {
+            // Fallback: use localStorage ID
+            myId = 'local_' + Date.now();
+            localStorage.setItem('foodcard_myid', myId);
+            localStorage.setItem('foodcard_data_' + myId, JSON.stringify(profileData));
+            if (callback) callback({ ok: true, id: myId });
+          }
+        } catch(e) {
+          myId = 'local_' + Date.now();
+          localStorage.setItem('foodcard_myid', myId);
+          localStorage.setItem('foodcard_data_' + myId, JSON.stringify(profileData));
+          if (callback) callback({ ok: true, id: myId });
+        }
+      };
+      xhr.onerror = function() {
+        // Offline fallback
+        myId = 'local_' + Date.now();
+        localStorage.setItem('foodcard_myid', myId);
+        localStorage.setItem('foodcard_data_' + myId, JSON.stringify(profileData));
+        if (callback) callback({ ok: true, id: myId });
+      };
+      xhr.send(JSON.stringify(profileData));
+    } else {
+      doSave(profileData, callback);
+    }
+  }
+
+  function doSave(profileData, callback) {
+    if (myId && myId.startsWith('local_')) {
+      // localStorage fallback
+      localStorage.setItem('foodcard_data_' + myId, JSON.stringify(profileData));
+      if (callback) callback({ ok: true, id: myId });
+      return;
+    }
+    var xhr = new XMLHttpRequest();
+    xhr.open('PUT', NPOINT_API + '/' + myId, true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.onload = function() {
+      if (callback) callback({ ok: true, id: myId });
+    };
+    xhr.onerror = function() {
+      // Fallback to localStorage
+      localStorage.setItem('foodcard_data_' + myId, JSON.stringify(profileData));
+      if (callback) callback({ ok: true, id: myId });
+    };
+    xhr.send(JSON.stringify(profileData));
+  }
+
+  function apiLoad(id, callback) {
+    if (id && id.startsWith('local_')) {
+      var data = localStorage.getItem('foodcard_data_' + id);
+      if (data) {
+        callback(null, JSON.parse(data));
+      } else {
+        callback('Not found', null);
+      }
+      return;
+    }
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', NPOINT_API + '/' + id, true);
+    xhr.onload = function() {
+      try {
+        var data = JSON.parse(xhr.responseText);
+        // npoint.io returns the bin content directly
+        callback(null, data);
+      } catch(e) {
+        callback('数据解析失败', null);
+      }
+    };
+    xhr.onerror = function() {
+      callback('网络错误，请检查链接', null);
+    };
+    xhr.send();
+  }
+
+  // ===== Init =====
+  function init() {
+    if (SHARE_ID) {
+      // View mode from shared link
+      document.getElementById('viewMode').classList.add('active');
+      document.getElementById('viewMode').classList.remove('active'); // will be removed later
+      document.getElementById('viewMode').classList.add('active');
+      document.getElementById('editMode').classList.remove('active');
+      apiLoad(SHARE_ID, function(err, data) {
+        if (err) {
+          document.body.innerHTML = '<div style="text-align:center;padding:40px 20px;font-size:1.2rem;color:#999;">😅 加载失败，请检查链接是否正确</div>';
+          return;
+        }
+        profile = data;
+        renderView();
+      });
+    } else {
+      // Edit mode - load my data if exists
+      if (myId) {
+        apiLoad(myId, function(err, data) {
+          if (!err && data) {
+            profile = data;
+          }
+          switchToEdit();
+        });
+      } else {
+        switchToEdit();
+      }
+    }
+  }
+
+  // ===== Theme =====
+  function applyTheme(themeId) {
+    var t = THEMES[themeId] || THEMES.default;
+    // View mode
+    var cover = document.querySelector('.profile-card .cover');
+    if (cover) cover.style.background = t.cover;
+    var shareBtn = document.querySelector('.share-actions .btn-primary');
+    if (shareBtn) shareBtn.style.background = t.btnBg;
+    var saveBtn = document.getElementById('btnSaveView');
+    if (saveBtn) saveBtn.style.background = t.btnBg;
+    var addBtn = document.getElementById('btnAdd');
+    if (addBtn) addBtn.style.background = t.btnBg;
+    // Edit header
+    var header = document.getElementById('editHeader');
+    if (header) header.style.background = t.header;
+    // Body theme
+    document.body.className = 'theme-' + themeId;
+    // Decorations
+    var decos = cover ? cover.querySelectorAll('.cover-deco') : [];
+    if (decos.length > 0) {
+      decos[0].textContent = t.deco;
+      if (decos[1]) decos[1].textContent = t.emoji;
+    }
+    // Bow
+    var bow = document.querySelector('.avatar-bow');
+    if (bow) bow.style.display = t.bow ? 'block' : 'none';
+    // Theme buttons
+    document.querySelectorAll('.theme-btn').forEach(function(el) {
+      el.classList.toggle('active', el.dataset.theme === themeId);
+    });
+  }
+
+  function selectTheme(themeId) {
+    profile.theme = themeId;
+    applyTheme(themeId);
+    // Apply to view mode immediately
+    var t = THEMES[themeId] || THEMES.default;
+    var cover = document.querySelector('.profile-card .cover');
+    if (cover) cover.style.background = t.cover;
+    var shareBtn = document.querySelector('.share-actions .btn-primary');
+    if (shareBtn) shareBtn.style.background = t.btnBg;
+    document.body.className = 'theme-' + themeId;
+    showToast('🎨 已切换为 ' + t.name + ' 主题');
+  }
+
+  // ===== View Mode =====
+  function renderView() {
+    const p = profile;
+    const name = p.name || '吃货';
+    document.getElementById('viewName').textContent = name;
+    document.getElementById('viewAvatar').textContent = name.charAt(0);
+
+    // Apply theme
+    applyTheme(p.theme || 'default');
+
+    ['love', 'like', 'meh', 'nope'].forEach(cat => {
+      const items = p.foods[cat] || [];
+      const grid = document.getElementById('view' + cat.charAt(0).toUpperCase() + cat.slice(1) + 'Grid');
+      const count = document.getElementById('view' + cat.charAt(0).toUpperCase() + cat.slice(1) + 'Count');
+      const section = document.getElementById('view' + cat.charAt(0).toUpperCase() + cat.slice(1) + 'Section');
+
+      count.textContent = items.length;
+
+      if (items.length === 0) {
+        grid.innerHTML = '<span class="empty-tip">还没有添加~</span>';
+        section.style.display = 'block';
+        return;
+      }
+
+      grid.innerHTML = items.map(item =>
+        `<span class="food-pill ${CATEGORIES[cat].viewClass}">${CATEGORIES[cat].emoji} ${item}</span>`
+      ).join('');
+    });
+  }
+
+  // ===== Edit Mode =====
+  function switchToEdit() {
+    document.getElementById('editMode').classList.add('active');
+    document.getElementById('viewMode').classList.remove('active');
+    renderEdit();
+  }
+
+  function switchToView() {
+    saveState();
+    document.getElementById('viewMode').classList.add('active');
+    document.getElementById('editMode').classList.remove('active');
+    renderView();
+  }
+
+  function saveAndView() {
+    saveState();
+    apiSave(profile, function(res) {
+      if (res && res.ok) {
+        switchToView();
+        showToast('✅ 已保存到服务器！');
+      } else {
+        showToast('⚠️ 保存失败，请重试');
+      }
+    });
+  }
+
+  function saveState() {
+    const name = document.getElementById('nameInput').value.trim();
+    if (name) profile.name = name;
+  }
+
+  function renderEdit() {
+    document.getElementById('nameInput').value = profile.name || '';
+
+    // Apply theme in edit mode
+    var t = THEMES[profile.theme] || THEMES.default;
+    var header = document.getElementById('editHeader');
+    if (header) header.style.background = t.header;
+    var addBtn = document.getElementById('btnAdd');
+    if (addBtn) addBtn.style.background = t.btnBg;
+    var saveBtn = document.getElementById('btnSaveView');
+    if (saveBtn) saveBtn.style.background = t.btnBg;
+    document.body.className = 'theme-' + (profile.theme || 'default');
+
+    // Theme selector
+    document.querySelectorAll('.theme-btn').forEach(function(el) {
+      el.classList.toggle('active', el.dataset.theme === (profile.theme || 'default'));
+    });
+
+    ['love', 'like', 'meh', 'nope'].forEach(cat => {
+      const items = profile.foods[cat] || [];
+      const list = document.getElementById('edit' + cat.charAt(0).toUpperCase() + cat.slice(1) + 'List');
+      const count = document.getElementById('edit' + cat.charAt(0).toUpperCase() + cat.slice(1) + 'Count');
+
+      count.textContent = items.length;
+
+      if (items.length === 0) {
+        list.innerHTML = '<span class="edit-food-item empty">还没有添加~</span>';
+        return;
+      }
+
+      list.innerHTML = items.map((item, idx) =>
+        `<span class="edit-food-item">${CATEGORIES[cat].emoji} ${item} <span class="del" onclick="removeFood('${cat}', ${idx})">×</span></span>`
+      ).join('');
+    });
+  }
+
+  // ===== Category Tab =====
+  function setCategory(cat) {
+    currentCategory = cat;
+    document.querySelectorAll('.cat-tab').forEach(el => {
+      el.classList.toggle('active', el.dataset.cat === cat);
+    });
+    document.getElementById('foodInput').focus();
+  }
+
+  // ===== Add Food =====
+  function addFood() {
+    const input = document.getElementById('foodInput');
+    const val = input.value.trim();
+    if (!val) return;
+
+    const items = profile.foods[currentCategory];
+    if (items.includes(val)) {
+      showToast('⚠️ 已经添加过了~');
+      return;
+    }
+
+    items.push(val);
+    input.value = '';
+    input.focus();
+    renderEdit();
+
+    // Scroll to current section
+    const section = document.querySelector(`.edit-section[data-cat="${currentCategory}"]`);
+    if (section) section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function removeFood(cat, idx) {
+    profile.foods[cat].splice(idx, 1);
+    renderEdit();
+  }
+
+  // ===== Enter key =====
+  document.getElementById('foodInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') addFood();
+  });
+  document.getElementById('nameInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') this.blur();
+  });
+
+  // ===== Share =====
+  function getShareUrl() {
+    const base = window.location.href.split('?')[0].split('#')[0];
+    return base + '?id=' + myId;
+  }
+
+  function showShareModal() {
+    document.getElementById('shareUrlInput').value = getShareUrl();
+    document.getElementById('shareModal').classList.add('active');
+  }
+
+  function closeShareModal() {
+    document.getElementById('shareModal').classList.remove('active');
+  }
+
+  function copyUrl() {
+    const input = document.getElementById('shareUrlInput');
+    input.select();
+    try {
+      document.execCommand('copy');
+      showToast('📋 链接已复制！');
+    } catch (e) {
+      showToast('⚠️ 复制失败，请手动复制');
+    }
+  }
+
+  // Close share modal on overlay click
+  document.getElementById('shareModal').addEventListener('click', function(e) {
+    if (e.target === this) closeShareModal();
+  });
+
+  // ===== Toast =====
+  let toastTimer = null;
+  function showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2000);
+  }
+
+  // ===== Auto-save after edit =====
+  // Save whenever user adds or removes food
+  function autoSave() {
+    // Debounce: wait 1s after last edit before saving
+    if (window._saveTimer) clearTimeout(window._saveTimer);
+    window._saveTimer = setTimeout(function() {
+      if (myId) {
+        saveState();
+        apiSave(profile, function() {});
+      }
+    }, 1000);
+  }
+
+  // Override addFood and removeFood to auto-save
+  var _origAdd = addFood;
+  addFood = function() {
+    _origAdd();
+    autoSave();
+  };
+
+  var _origRemove = removeFood;
+  removeFood = function(cat, idx) {
+    _origRemove(cat, idx);
+    autoSave();
+  };
+
+  // ===== Init =====
+  init();
+</script>
+</body>
+</html>
